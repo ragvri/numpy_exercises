@@ -3,6 +3,8 @@ from sklearn import datasets
 from sklearn.model_selection import train_test_split
 import math
 
+# This in particular is gaussian naive bayes. We assume each feature is conditionally independent of the other
+# and they all follow gaussian distribution
 
 # p(Y|x) = P(x1|y) x P(x2|y) .... x P(X_n|Y) * P(Y)
 class NaiveBayes:
@@ -16,13 +18,13 @@ class NaiveBayes:
         means = []
         stds = []
         for label in range(self.n_classes):
-            ids = np.where(y == label)[0]
-            mean = np.mean(X[ids, :], axis=0)  # shape is n_features
-            std = np.std(X[ids, :], axis=0)
+            mask = y == label  # boolean array
+            mean = np.mean(X[mask], axis=0)
+            std = np.std(X[mask], axis=0)
             means.append(mean)
             stds.append(std)
 
-        self.means = np.array(means)  # n_classes, features
+        self.means = np.array(means)
         self.std = np.array(stds)
 
     def _pdf(self, mean: np.ndarray, std: np.ndarray, x: np.ndarray):

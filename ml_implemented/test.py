@@ -1,5 +1,6 @@
-import numpy as np
 import random
+
+import numpy as np
 
 
 def softmax(logits: np.ndarray) -> np.ndarray:
@@ -58,7 +59,7 @@ def weighted_sample(items: list, weights: list) -> str:
     total = 0
     for weight in weights:
         total += weight
-        cumsum.append(weight)
+        cumsum.append(total)
 
     r = random.randint(1, cumsum[-1])
 

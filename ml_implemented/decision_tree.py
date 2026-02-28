@@ -33,20 +33,17 @@ class DecisionTree:
     def get_information_gain(self, X, y: np.ndarray, f_id, threshold) -> float:
         parent_entropy = self._get_entropy(y)
 
-        left_child_ids = np.where(X[:, f_id] < threshold)[0]
-        right_child_ids = np.where(X[:, f_id] >= threshold)[0]
+        left_mask = X[:, f_id] < threshold
+        right_mask = ~left_mask
 
-        if len(left_child_ids) == 0 or len(right_child_ids) == 0:
+        if left_mask.sum() == 0 or right_mask.sum() == 0:
             return 0
 
-        left_child_entropy = self._get_entropy(y[left_child_ids]) * (
-            len(left_child_ids) / len(y)
-        )
-        right_child_entropy = (
-            self._get_entropy(y[right_child_ids]) * len(right_child_ids) / len(y)
-        )
+        left_child_entropy = self._get_entropy(y[left_mask]) * left_mask.mean()
+        right_child_entropy = self._get_entropy(y[right_mask]) * right_mask.mean()
 
         return parent_entropy - (left_child_entropy + right_child_entropy)
+
 
     def _get_best_split(self, X, y):
         best_gain = -1
@@ -74,27 +71,22 @@ class DecisionTree:
         # everything smaller goes to the left
         # everything bigger goes to the right
         if (
-            depth == self.max_depth
-            or len(np.unique(y)) == 1
-            or X.shape[0] <= self.min_samples_to_split
-        ):
+        depth == self.max_depth
+        or len(np.unique(y)) == 1
+        or X.shape[0] <= self.min_samples_to_split
+    ):
             label = self.get_most_common(y)
-            node = Node(val=label)
-            return node
+            return Node(val=label)
+
         best_feature, best_threshold = self._get_best_split(X, y)
 
-        left_child_ids = np.where(X[:, best_feature] < best_threshold)[0]
-        right_child_ids = np.where(X[:, best_feature] >= best_threshold)[0]
+        left_mask = X[:, best_feature] < best_threshold
+        right_mask = ~left_mask
 
         node = Node(threshold=best_threshold, feature_to_split=best_feature)
+        node.left_node = self._grow_tree(X[left_mask], y[left_mask], depth + 1)
+        node.right_node = self._grow_tree(X[right_mask], y[right_mask], depth + 1)
 
-        node.left_node = self._grow_tree(
-            X[left_child_ids], y[left_child_ids], depth + 1
-        )
-
-        node.right_node = self._grow_tree(
-            X[right_child_ids], y[right_child_ids], depth + 1
-        )
         return node
 
     def fit(self, X, y):

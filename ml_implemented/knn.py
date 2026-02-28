@@ -39,23 +39,14 @@ class KNN:
         # m,k
         indices = np.argpartition(distances, axis=-1, kth=self.k)[:, : self.k]
 
-        predictions = []
+        neighbor_labels = self.y_train[indices]  # (n, k) -> using advanced indexing with broadcast
 
-        for index in indices:
-            counter = defaultdict(int)
-            max_label = None
-            max_freq = 0
-            labels = self.y_train[index]
-            for label in labels:
-                counter[label] += 1
-                if max_freq < counter[label]:
-                    max_freq = counter[label]
-                    max_label = label
-
-            predictions.append(max_label)
-
+        num_classes = int(self.y_train.max()) + 1
+        predictions = [
+            np.argmax(np.bincount(row, minlength=num_classes))
+            for row in neighbor_labels
+        ]
         return predictions
-
 
 if __name__ == "__main__":
     X_train = np.array(
