@@ -21,10 +21,8 @@ def sample_next_token(
 
     sorted_indices = np.argsort(-probs, axis=0)
 
-    top_k_mask = sorted_indices[:top_k]
-    mask = np.zeros(logits.shape, dtype=np.bool)
-    mask[top_k_mask] = True
-    probs[~mask] = 0
+    top_k_indices = sorted_indices[top_k:]  # indices OUTSIDE top-k
+    probs[top_k_indices] = 0
     # this is making all indices not in top k to be 0
 
     # sorted probs

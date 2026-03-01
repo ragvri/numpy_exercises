@@ -60,7 +60,7 @@ class SwiGLU(nn.Module):
         return X * torch.sigmoid(X)
 
     def forward(self, x: Float[Tensor, "b ... d"]):
-        # (X sig(X)
+        # (X sig(X))
         gate = self.silu(self.W_g(x))
         inner = gate * self.W_u(x)
         return self.W_d(inner)

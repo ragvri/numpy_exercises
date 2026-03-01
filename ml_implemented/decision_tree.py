@@ -44,7 +44,6 @@ class DecisionTree:
 
         return parent_entropy - (left_child_entropy + right_child_entropy)
 
-
     def _get_best_split(self, X, y):
         best_gain = -1
         best_feature = best_threshold = None
@@ -71,10 +70,10 @@ class DecisionTree:
         # everything smaller goes to the left
         # everything bigger goes to the right
         if (
-        depth == self.max_depth
-        or len(np.unique(y)) == 1
-        or X.shape[0] <= self.min_samples_to_split
-    ):
+            depth == self.max_depth
+            or len(np.unique(y)) == 1
+            or X.shape[0] <= self.min_samples_to_split
+        ):
             label = self.get_most_common(y)
             return Node(val=label)
 
@@ -113,6 +112,110 @@ class DecisionTree:
         return predictions
 
 
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+
+class Node:
+    def __init__(self, feature_to_split=None, val=None):
+        self.feature_to_split = feature_to_split
+        self.left_node = None  # feature == 0
+        self.right_node = None  # feature == 1
+        self.val = val
+
+
+class BinaryDecisionTree:
+    def __init__(self, min_samples_to_split: int = 10, max_depth: int = 10):
+        self.min_samples_to_split = min_samples_to_split
+        self.max_depth = max_depth
+        self.root = None
+
+    def _get_entropy(self, y: np.ndarray) -> float:
+        """Works for binary labels (0/1)."""
+        assert y.ndim == 1
+        if len(y) == 0:
+            return 0.0
+        p = y.mean()  # proportion of 1s
+        if p == 0 or p == 1:
+            return 0.0
+        return -p * np.log(p) - (1 - p) * np.log(1 - p)
+
+    def get_information_gain(self, X, y: np.ndarray, f_id) -> float:
+        """No threshold needed — binary features split on 0 vs 1."""
+        parent_entropy = self._get_entropy(y)
+
+        left_mask = X[:, f_id] == 0  # left child: feature == 0
+        right_mask = ~left_mask  # right child: feature == 1
+
+        if left_mask.sum() == 0 or right_mask.sum() == 0:
+            return 0
+
+        left_child_entropy = self._get_entropy(y[left_mask]) * left_mask.mean()
+        right_child_entropy = self._get_entropy(y[right_mask]) * right_mask.mean()
+
+        return parent_entropy - (left_child_entropy + right_child_entropy)
+
+    def _get_best_split(self, X, y):
+        best_gain = -1
+        best_feature = None
+
+        for f_id in range(X.shape[1]):
+            gain = self.get_information_gain(X, y, f_id)  # no threshold loop!
+            if gain > best_gain:
+                best_gain = gain
+                best_feature = f_id
+
+        return best_feature
+
+    def get_most_common(self, y: np.ndarray) -> int:
+        return int(np.argmax(np.bincount(y)))
+
+    def _grow_tree(self, X, y: np.ndarray, depth=0):
+        if (
+            depth == self.max_depth
+            or len(np.unique(y)) == 1
+            or X.shape[0] <= self.min_samples_to_split
+        ):
+            label = self.get_most_common(y)
+            return Node(val=label)
+
+        best_feature = self._get_best_split(X, y)
+
+        if best_feature is None:
+            return Node(val=self.get_most_common(y))
+
+        left_mask = X[:, best_feature] == 0
+        right_mask = ~left_mask
+
+        # Edge case: if split produces an empty side, make a leaf
+        if left_mask.sum() == 0 or right_mask.sum() == 0:
+            return Node(val=self.get_most_common(y))
+
+        node = Node(feature_to_split=best_feature)
+        node.left_node = self._grow_tree(X[left_mask], y[left_mask], depth + 1)
+        node.right_node = self._grow_tree(X[right_mask], y[right_mask], depth + 1)
+
+        return node
+
+    def fit(self, X, y):
+        self.root = self._grow_tree(X, y)
+
+    def _traverse(self, node: Node, X: np.ndarray):
+        if node.val is not None:
+            return node
+
+        if X[node.feature_to_split] == 0:
+            return self._traverse(node.left_node, X)
+        return self._traverse(node.right_node, X)
+
+    def predict(self, X: np.ndarray) -> list:
+        predictions = []
+        for x in X:
+            leaf = self._traverse(self.root, x)
+            predictions.append(leaf.val)
+        return predictions
+
+
 if __name__ == "__main__":
     X, y = datasets.make_classification(n_samples=1000, n_features=10, n_classes=2)
 
@@ -126,4 +229,20 @@ if __name__ == "__main__":
         y_test
     )
 
+    print(f"accuracy is {accuracy}")
+
+    # Generate binary features and binary labels
+    np.random.seed(42)
+    n_samples, n_features = 1000, 10
+    X = np.random.randint(0, 2, size=(n_samples, n_features))
+    y = (X[:, 0] & X[:, 1]) | X[:, 2]  # some logical rule
+    y = y.astype(int)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+
+    classifier = BinaryDecisionTree(min_samples_to_split=5, max_depth=10)
+    classifier.fit(X_train, y_train)
+    predictions = classifier.predict(X_test)
+
+    accuracy = np.mean(np.array(predictions) == y_test)
     print(f"accuracy is {accuracy}")
