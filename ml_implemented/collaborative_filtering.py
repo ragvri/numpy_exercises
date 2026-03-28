@@ -22,7 +22,7 @@ class CollaborativeFiltering:
 
         ratings = ratings.astype(float)
         n_users, n_items = ratings.shape
-        observed = np.argwhere(~np.isnan(ratings))
+        observed = np.argwhere(~np.isnan(ratings)) # (observed, 2) shape
 
         if observed.size == 0:
             raise ValueError("ratings has no observed values")
@@ -32,7 +32,7 @@ class CollaborativeFiltering:
 
         for epoch in range(self.epochs):
             # observed is (num_observed, 2): [user_idx, item_idx] per known rating.
-            user_idx = observed[:, 0]
+            user_idx = observed[:, 0] # (num_observed,)
             item_idx = observed[:, 1]
 
             # target: (num_observed,)

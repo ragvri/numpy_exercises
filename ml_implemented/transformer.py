@@ -1,7 +1,20 @@
 import torch
 from einops import einsum, rearrange
 from torch import nn, Tensor
-from jaxtyping import Float
+from jaxtyping import Float, Int
+
+
+class Embedding(nn.Module):
+    def __init__(self, vocab_size: int, embed_dim: int, max_seq_len: int = 1000):
+        super().__init__()
+        self.token_embed = nn.Embedding(vocab_size, embed_dim)
+        self.pos_embed = nn.Embedding(max_seq_len, embed_dim)
+
+    def forward(self, token_ids: Int[Tensor, "b seq"]) -> Float[Tensor, "b seq d"]:
+        b, seq = token_ids.shape
+        positions = torch.arange(seq, device=token_ids.device).unsqueeze(0)  # (1, seq)
+        # b,s,d  + 1,s,d
+        return self.token_embed(token_ids) + self.pos_embed(positions)
 
 
 class MultiHeadAttention(nn.Module):
@@ -43,7 +56,7 @@ class MultiHeadAttention(nn.Module):
         final = einsum(scores, v, "b n i s, b n s d -> b n i d")
         final = rearrange(final, "b n s d -> b s (n d)")
 
-        final = self.linear(final)
+        return self.linear(final)
 
 
 class SwiGLU(nn.Module):
@@ -75,7 +88,7 @@ class TransformerDecoderLayer(nn.Module):
         )
 
         self.ln = nn.RMSNorm(normalized_shape=embed_dim)
-        self.mlp = SwiGLU(hidden_dim == hidden_dim)
+        self.mlp = SwiGLU(hidden_dim)
 
     def forward(self, x: Float[Tensor, "b s d"]):
         """
@@ -90,3 +103,58 @@ class TransformerDecoderLayer(nn.Module):
         norm2 = self.ln(x)
         x = self.mlp(norm2) + residual
         return x
+
+
+class Transformer(nn.Module):
+    def __init__(
+        self,
+        vocab_size: int,
+        embed_dim: int,
+        num_heads: int,
+        hidden_dim: int,
+        num_layers: int,
+        max_seq_len: int = 1000,
+    ):
+        super().__init__()
+        self.embedding = Embedding(vocab_size, embed_dim, max_seq_len)
+        self.layers = nn.ModuleList(
+            [
+                TransformerDecoderLayer(embed_dim, num_heads, hidden_dim)
+                for _ in range(num_layers)
+            ]
+        )
+        self.ln_final = nn.RMSNorm(embed_dim)
+
+    def forward(self, token_ids: Int[Tensor, "b seq"]) -> Float[Tensor, "b seq d"]:
+        x = self.embedding(token_ids)
+        for layer in self.layers:
+            x = layer(x)
+        return self.ln_final(x)
+
+
+if __name__ == "__main__":
+    # Build a simple vocab from the input
+    text = input().strip()
+    words = text.split()
+    vocab = {w: i for i, w in enumerate(sorted(set(words)))}
+    vocab_size = len(vocab)
+
+    token_ids = torch.tensor([[vocab[w] for w in words]])  # (1, seq_len)
+
+    model = Transformer(
+        vocab_size=vocab_size,
+        embed_dim=64,
+        num_heads=4,
+        hidden_dim=64,
+        num_layers=2,
+    )
+    model.eval()
+
+    with torch.no_grad():
+        output = model(token_ids)  # (1, seq_len, embed_dim)
+
+    # Print space-separated representation for each token
+    for i, word in enumerate(words):
+        vec = output[0, i].numpy()
+        formatted = " ".join(f"{v:.4f}" for v in vec)
+        print(f"{word}: {formatted}")
