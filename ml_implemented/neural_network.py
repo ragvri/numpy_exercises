@@ -97,11 +97,25 @@ def softmax_backward(dProbs: np.ndarray, probs: np.ndarray) -> np.ndarray:
     Returns:
         dLogits: (batch, num_classes) gradient w.r.t. logits
 
-    Jacobian per sample: dS_i/dz_j = S_i(δ_ij - S_j)
-    Vectorized: dLogits = probs * (dProbs - sum(dProbs * probs, axis=1, keepdims=True))
+    dy_i/dx_j = y_i(δ_ij - y_j)
+    Jacobian: J = diag(y) - y @ y^T
+    dLogits = dProbs @ J  (per sample)
+
+    Simplification: dProbs @ J expands to
+      dL/dx_j = y_j * (dL/dy_j - sum_i(dL/dy_i * y_i))
+             = probs * (dProbs - sum(dProbs * probs))
+    which avoids building the (C, C) Jacobian — O(C) instead of O(C^2).
     """
-    dot = np.sum(dProbs * probs, axis=1, keepdims=True)
-    return probs * (dProbs - dot)
+    batch_size = probs.shape[0]
+    # J = diag(y) - y @ y^T per sample
+    # probs[:, :, None] is (batch, C, 1), probs[:, None, :] is (batch, 1, C)
+    jacobian = np.eye(probs.shape[1])[None, :, :] * probs[:, :, None] - probs[:, :, None] @ probs[:, None, :]  # (batch, C, C)
+    # dLogits = dProbs @ J -> (batch, 1, C) @ (batch, C, C) -> (batch, 1, C) -> squeeze to (batch, C)
+    dLogits = (dProbs[:, None, :] @ jacobian).squeeze(1)
+    return dLogits
+    # Simplified O(C) version (equivalent, avoids building the Jacobian):
+    # dot = np.sum(dProbs * probs, axis=1, keepdims=True)  # sum_i(dL/dy_i * y_i), shape (batch, 1)
+    # return probs * (dProbs - dot)  # y_j * (dL/dy_j - dot), shape (batch, C)
 
 
 def cross_entropy_forward(probs: np.ndarray, Y_true: np.ndarray):
