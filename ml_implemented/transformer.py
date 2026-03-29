@@ -53,8 +53,8 @@ class MultiHeadAttention(nn.Module):
 
         scores = torch.softmax(q_k_t, dim=-1)
 
-        final = einsum(scores, v, "b n i s, b n s d -> b n i d")
-        final = rearrange(final, "b n s d -> b s (n d)")
+        final = einsum(scores, v, "b n i j, b n j d -> b n i d")
+        final = rearrange(final, "b n i d -> b i (n d)")
 
         return self.linear(final)
 
@@ -82,7 +82,6 @@ class SwiGLU(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     def __init__(self, embed_dim: int, num_heads: int, hidden_dim: int, dropout=0.1):
         super().__init__()
-        # TODO: Define Attention, LayerNorms, and MLP layers
         self.attention = MultiHeadAttention(
             n_heads=num_heads, d_in=embed_dim, d_output=hidden_dim, is_causal=True
         )

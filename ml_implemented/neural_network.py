@@ -44,13 +44,13 @@ class LinearNN:
         Backward pass through activation + linear.
 
         Args:
-            dA: Gradient w.r.t. this layer's output A
+            dA: Gradient w.r.t. this layer's output A shape is (batch_size, d_out)
         Returns:
             dX: Gradient w.r.t. this layer's original input X
         """
         # Activation derivative
         if self.activation == "sigmoid":
-            dZ = dA * self.A * (1 - self.A)
+            dZ = dA * self.A * (1 - self.A) #(bsz, d_out)
         elif self.activation == "relu":
             dZ = dA * (self.Z > 0).astype(float)
         else:  # linear
