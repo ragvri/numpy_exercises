@@ -4,9 +4,10 @@ import matplotlib.pyplot as plt
 
 
 class KMeans:
-    def __init__(self, k: int = 5, max_iterations: int = 1000):
+    def __init__(self, k: int = 5, max_iterations: int = 300, tol: float = 1e-4):
         self.k = k
         self.max_iterations = max_iterations
+        self.tol = tol
         self.centers = None
 
     def get_distance(self, X: np.ndarray, Y: np.ndarray) -> np.ndarray:
@@ -24,24 +25,25 @@ class KMeans:
 
         for _ in range(self.max_iterations):
             distance = self.get_distance(X, self.centers)  # n x k
-            new_clusters = np.argmin(distance, axis=1)  # n
+            self.clusters = np.argmin(distance, axis=1)  # n
 
-            if np.all(new_clusters == self.clusters):
-                break
-
-            self.clusters = new_clusters
-
-            centers = []
+            new_centers = []
             for i in range(self.k):
                 mask = self.clusters == i
                 if np.any(mask):
                     new_center = X[mask].mean(axis=0)
                 else:
-                    # randomly initalize to a new point
-                    new_center = X[np.random.choice(len(X), size=1)]
-                centers.append(new_center)
+                    new_center = X[np.random.choice(len(X), size=1)].flatten()
+                new_centers.append(new_center)
 
-            self.centers = np.array(centers)  # k, d
+            new_centers = np.array(new_centers)  # k, d
+
+            centroid_shift = np.sqrt(np.sum((new_centers - self.centers) ** 2, axis=1)).max()
+            self.centers = new_centers
+
+            # if largest centroid shift is less than tolerance we break
+            if centroid_shift < self.tol:
+                break
 
     def predict(self, X: np.ndarray):
         assert self.centers is not None
