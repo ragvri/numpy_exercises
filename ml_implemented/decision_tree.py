@@ -22,9 +22,8 @@ class DecisionTree:
     def _get_entropy(self, y: np.ndarray) -> float:
         assert y.ndim == 1
         counts = np.bincount(y)
-        non_zero_ids = np.where(counts > 0)
-
-        probs = counts[non_zero_ids] / len(y)  # c where c is the number of classes
+        mask = counts >0
+        probs = counts[mask] / len(y)  # c where c is the number of classes
 
         entropy = -np.sum(probs * np.log(probs), axis=0)
 
